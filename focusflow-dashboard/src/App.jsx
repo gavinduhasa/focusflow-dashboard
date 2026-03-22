@@ -1,6 +1,6 @@
 import { useState } from "react";
 import "./App.css";
-import TasksPage from "../src/pages/TaskPage";
+import TasksPage from "./pages/TaskPage";
 
 function App() {
   const [activePage, setActivePage] = useState("dashboard");
@@ -23,12 +23,13 @@ function App() {
         return <h1>Dashboard Page</h1>;
     }
   };
+
   return (
     <div className="app">
-      {/* Sidebar */}
       <aside className="sidebar">
-        <h2>FocusFlow</h2>
-        <nav>
+        <h2 className="logo">FocusFlow</h2>
+
+        <nav className="sidebar-nav">
           <p
             className={activePage === "dashboard" ? "active" : ""}
             onClick={() => setActivePage("dashboard")}
@@ -73,7 +74,6 @@ function App() {
         </nav>
       </aside>
 
-      {/* Main Content */}
       <main className="main">
         <div className="main-content">{renderPage()}</div>
       </main>

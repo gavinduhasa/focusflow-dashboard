@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "../styles/TaskPage.css";
-import TaskCard from "../components/TaskCard";
 
 const TasksPage = () => {
   const [tasks, setTasks] = useState(() => {
@@ -62,8 +61,8 @@ const TasksPage = () => {
   const toggleTaskStatus = (id) => {
     setTasks((prev) =>
       prev.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task,
-      ),
+        task.id === id ? { ...task, completed: !task.completed } : task
+      )
     );
   };
 
@@ -82,8 +81,8 @@ const TasksPage = () => {
         statusFilter === "All"
           ? true
           : statusFilter === "Completed"
-            ? task.completed
-            : !task.completed;
+          ? task.completed
+          : !task.completed;
 
       const matchesPriority =
         priorityFilter === "All" ? true : task.priority === priorityFilter;
@@ -96,22 +95,11 @@ const TasksPage = () => {
   const completedTasks = tasks.filter((task) => task.completed).length;
   const pendingTasks = tasks.filter((task) => !task.completed).length;
 
-  filteredTasks.map((task) => (
-    <TaskCard
-      key={task.id}
-      task={task}
-      onToggle={toggleTaskStatus}
-      onDelete={deleteTask}
-    />
-  ));
-
   return (
     <div className="tasks-page">
       <div className="tasks-header">
-        <div>
-          <h1>Tasks</h1>
-          <p>Manage your work and stay productive.</p>
-        </div>
+        <h1>Tasks</h1>
+        <p>Manage your work and stay productive.</p>
       </div>
 
       <div className="task-stats">
@@ -119,10 +107,12 @@ const TasksPage = () => {
           <h3>Total Tasks</h3>
           <p>{totalTasks}</p>
         </div>
+
         <div className="stat-card">
           <h3>Completed</h3>
           <p>{completedTasks}</p>
         </div>
+
         <div className="stat-card">
           <h3>Pending</h3>
           <p>{pendingTasks}</p>
@@ -132,6 +122,7 @@ const TasksPage = () => {
       <div className="tasks-grid">
         <div className="task-form-card">
           <h2>Add New Task</h2>
+
           <form onSubmit={handleAddTask} className="task-form">
             <input
               type="text"
@@ -222,7 +213,7 @@ const TasksPage = () => {
                   className={`task-item ${task.completed ? "completed" : ""}`}
                 >
                   <div className="task-top">
-                    <div>
+                    <div className="task-content">
                       <h3>{task.title}</h3>
                       <p>{task.description || "No description added."}</p>
                     </div>
@@ -250,6 +241,7 @@ const TasksPage = () => {
                         {task.completed ? "Undo" : "Complete"}
                       </button>
                       <button
+                        type="button"
                         className="delete-btn"
                         onClick={() => deleteTask(task.id)}
                       >

@@ -1,23 +1,33 @@
 .tasks-page {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
   padding: 24px;
   color: #1e293b;
 }
 
+.tasks-header {
+  margin-bottom: 24px;
+}
+
 .tasks-header h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 32px;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .tasks-header p {
-  margin-top: 6px;
+  margin-top: 8px;
   color: #64748b;
+  font-size: 15px;
 }
 
 .task-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
-  margin: 24px 0;
+  margin-bottom: 24px;
 }
 
 .stat-card {
@@ -25,6 +35,7 @@
   border-radius: 18px;
   padding: 20px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  color: #1e293b;
 }
 
 .stat-card h3 {
@@ -36,13 +47,15 @@
 .stat-card p {
   margin-top: 10px;
   font-size: 28px;
-  font-weight: bold;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .tasks-grid {
   display: grid;
-  grid-template-columns: 350px 1fr;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
   gap: 20px;
+  align-items: start;
 }
 
 .task-form-card,
@@ -51,10 +64,13 @@
   border-radius: 18px;
   padding: 20px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  color: #1e293b;
 }
 
-.task-form-card h2 {
-  margin-bottom: 16px;
+.task-form-card h2,
+.task-list-card h2 {
+  margin: 0 0 16px;
+  color: #0f172a;
 }
 
 .task-form {
@@ -68,22 +84,48 @@
 .task-form select,
 .task-controls input,
 .task-controls select {
+  width: 100%;
   padding: 12px 14px;
   border: 1px solid #dbe2ea;
   border-radius: 12px;
   font-size: 14px;
   outline: none;
+  background: #ffffff;
+  color: #0f172a;
+  transition: 0.2s ease;
+  box-sizing: border-box;
+}
+
+.task-form input::placeholder,
+.task-form textarea::placeholder,
+.task-controls input::placeholder {
+  color: #94a3b8;
+}
+
+.task-form input:focus,
+.task-form textarea:focus,
+.task-form select:focus,
+.task-controls input:focus,
+.task-controls select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.task-form textarea {
+  resize: vertical;
+  min-height: 110px;
 }
 
 .task-form button {
   background: #2563eb;
-  color: white;
+  color: #ffffff;
   border: none;
   padding: 12px;
   border-radius: 12px;
   font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  transition: 0.3s;
+  transition: 0.3s ease;
 }
 
 .task-form button:hover {
@@ -92,7 +134,7 @@
 
 .task-controls {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr;
+  grid-template-columns: minmax(0, 1.5fr) minmax(140px, 1fr) minmax(140px, 1fr);
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -107,8 +149,9 @@
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 16px;
-  transition: 0.3s;
+  transition: 0.3s ease;
   background: #f8fafc;
+  width: 100%;
 }
 
 .task-item:hover {
@@ -126,24 +169,34 @@
 .task-top {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 16px;
 }
 
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
 .task-top h3 {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
+  color: #0f172a;
+  word-break: break-word;
 }
 
 .task-top p {
   margin: 0;
   color: #64748b;
   font-size: 14px;
+  word-break: break-word;
 }
 
 .task-badges {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: 90px;
+  min-width: 95px;
+  flex-shrink: 0;
 }
 
 .badge {
@@ -153,6 +206,7 @@
   font-size: 12px;
   text-align: center;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .priority.high {
@@ -195,6 +249,7 @@
 .task-actions {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .task-actions button {
@@ -203,12 +258,22 @@
   border-radius: 10px;
   cursor: pointer;
   background: #e2e8f0;
+  color: #0f172a;
   font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.task-actions button:hover {
+  background: #cbd5e1;
 }
 
 .task-actions .delete-btn {
   background: #fee2e2;
   color: #dc2626;
+}
+
+.task-actions .delete-btn:hover {
+  background: #fecaca;
 }
 
 .empty-state {
@@ -217,9 +282,25 @@
   color: #94a3b8;
 }
 
-@media (max-width: 992px) {
+/* Tablet */
+@media (max-width: 1100px) {
   .tasks-grid {
     grid-template-columns: 1fr;
+  }
+
+  .task-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Medium screens */
+@media (max-width: 768px) {
+  .tasks-page {
+    padding: 16px;
+  }
+
+  .tasks-header h1 {
+    font-size: 28px;
   }
 
   .task-stats {
@@ -230,75 +311,58 @@
     grid-template-columns: 1fr;
   }
 
+  .task-top {
+    flex-direction: column;
+  }
+
+  .task-badges {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .task-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .task-actions {
+    width: 100%;
+  }
+
+  .task-actions button {
+    flex: 1;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
   .tasks-page {
-  padding: 24px;
-  color: #1e293b;
-}
+    padding: 12px;
+  }
 
-.tasks-header h1 {
-  margin: 0;
-  font-size: 32px;
-  color: #0f172a;
-  font-weight: 700;
-}
+  .task-form-card,
+  .task-list-card,
+  .stat-card {
+    padding: 16px;
+    border-radius: 14px;
+  }
 
-.tasks-header p {
-  margin-top: 8px;
-  color: #64748b;
-}
+  .tasks-header h1 {
+    font-size: 24px;
+  }
 
-.task-form-card h2,
-.task-list-card h2 {
-  color: #0f172a;
-}
+  .task-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
 
-.task-form-card,
-.task-list-card,
-.stat-card {
-  color: #1e293b;
-}
+  .task-actions {
+    flex-direction: column;
+    width: 100%;
+  }
 
-.task-form input,
-.task-form textarea,
-.task-form select,
-.task-controls input,
-.task-controls select {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid #dbe2ea;
-  border-radius: 12px;
-  font-size: 14px;
-  outline: none;
-  background: #ffffff;
-  color: #0f172a;
-}
-
-.task-form input::placeholder,
-.task-form textarea::placeholder,
-.task-controls input::placeholder {
-  color: #94a3b8;
-}
-
-.task-actions button {
-  border: none;
-  padding: 10px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  background: #e2e8f0;
-  color: #0f172a;
-  font-weight: 600;
-}
-
-.task-actions .delete-btn {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.tasks-header h1 {
-  color: #0f172a;
-}
-
-.task-form input {
-  background: white;
-}
+  .task-actions button {
+    width: 100%;
+  }
 }
