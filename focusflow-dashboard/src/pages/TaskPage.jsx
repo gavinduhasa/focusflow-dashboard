@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import "../styles/TaskPage.css";
 
-const TasksPage = () => {
-  const [tasks, setTasks] = useState(() => {
-    const savedTasks = localStorage.getItem("focusflow_tasks");
-    return savedTasks ? JSON.parse(savedTasks) : [];
-  });
+function TaskPage() {
+  const [tasks, setTasks] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
 
-  const [taskData, setTaskData] = useState({
+  const [formData, setFormData] = useState({
     title: "",
     description: "",
     priority: "Medium",
@@ -15,41 +15,65 @@ const TasksPage = () => {
     dueDate: "",
   });
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [priorityFilter, setPriorityFilter] = useState("All");
+  const [editTaskId, setEditTaskId] = useState(null);
 
+  // Load from localStorage
+  useEffect(() => {
+    const savedTasks = localStorage.getItem("focusflow_tasks");
+    if (savedTasks) {
+      setTasks(JSON.parse(savedTasks));
+    }
+  }, []);
+
+  // Save to localStorage
   useEffect(() => {
     localStorage.setItem("focusflow_tasks", JSON.stringify(tasks));
   }, [tasks]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setTaskData((prev) => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
-  const handleAddTask = (e) => {
+  const handleAddOrUpdateTask = (e) => {
     e.preventDefault();
 
-    if (!taskData.title.trim()) return;
+    if (!formData.title.trim()) {
+      alert("Task title is required");
+      return;
+    }
 
-    const newTask = {
-      id: Date.now(),
-      title: taskData.title,
-      description: taskData.description,
-      priority: taskData.priority,
-      category: taskData.category,
-      dueDate: taskData.dueDate,
-      completed: false,
-      createdAt: new Date().toLocaleString(),
-    };
+    if (editTaskId) {
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === editTaskId
+            ? {
+                ...task,
+                ...formData,
+              }
+            : task
+        )
+      );
+      setEditTaskId(null);
+    } else {
+      const newTask = {
+        id: Date.now(),
+        title: formData.title,
+        description: formData.description,
+        priority: formData.priority,
+        category: formData.category,
+        dueDate: formData.dueDate,
+        completed: false,
+        createdAt: new Date().toISOString(),
+      };
 
-    setTasks((prev) => [newTask, ...prev]);
+      setTasks((prevTasks) => [...prevTasks, newTask]);
+    }
 
-    setTaskData({
+    setFormData({
       title: "",
       description: "",
       priority: "Medium",
@@ -58,46 +82,70 @@ const TasksPage = () => {
     });
   };
 
-  const toggleTaskStatus = (id) => {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
+  const handleDeleteTask = (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this task?");
+    if (!confirmDelete) return;
+
+    setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
+
+    if (editTaskId === id) {
+      setEditTaskId(null);
+      setFormData({
+        title: "",
+        description: "",
+        priority: "Medium",
+        category: "Work",
+        dueDate: "",
+      });
+    }
+  };
+
+  const handleToggleComplete = (id) => {
+    setTasks((prevTasks) =>
+      prevTasks.map((task) =>
+        task.id === id
+          ? { ...task, completed: !task.completed }
+          : task
       )
     );
   };
 
-  const deleteTask = (id) => {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
-  };
-
-  const filteredTasks = useMemo(() => {
-    return tasks.filter((task) => {
-      const matchesSearch =
-        task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.category.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === "All"
-          ? true
-          : statusFilter === "Completed"
-          ? task.completed
-          : !task.completed;
-
-      const matchesPriority =
-        priorityFilter === "All" ? true : task.priority === priorityFilter;
-
-      return matchesSearch && matchesStatus && matchesPriority;
+  const handleEditTask = (task) => {
+    setEditTaskId(task.id);
+    setFormData({
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      category: task.category,
+      dueDate: task.dueDate,
     });
-  }, [tasks, searchTerm, statusFilter, priorityFilter]);
+  };
 
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((task) => task.completed).length;
   const pendingTasks = tasks.filter((task) => !task.completed).length;
 
+  const filteredTasks = tasks.filter((task) => {
+    const matchesSearch =
+      task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "all"
+        ? true
+        : statusFilter === "completed"
+        ? task.completed
+        : !task.completed;
+
+    const matchesPriority =
+      priorityFilter === "all" ? true : task.priority === priorityFilter;
+
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
+
   return (
-    <div className="tasks-page">
-      <div className="tasks-header">
+    <div className="task-page">
+      <div className="task-header">
         <h1>Tasks</h1>
         <p>Manage your work and stay productive.</p>
       </div>
@@ -105,44 +153,44 @@ const TasksPage = () => {
       <div className="task-stats">
         <div className="stat-card">
           <h3>Total Tasks</h3>
-          <p>{totalTasks}</p>
+          <h2>{totalTasks}</h2>
         </div>
 
         <div className="stat-card">
           <h3>Completed</h3>
-          <p>{completedTasks}</p>
+          <h2>{completedTasks}</h2>
         </div>
 
         <div className="stat-card">
           <h3>Pending</h3>
-          <p>{pendingTasks}</p>
+          <h2>{pendingTasks}</h2>
         </div>
       </div>
 
-      <div className="tasks-grid">
+      <div className="task-main">
         <div className="task-form-card">
-          <h2>Add New Task</h2>
+          <h2>{editTaskId ? "Update Task" : "Add New Task"}</h2>
 
-          <form onSubmit={handleAddTask} className="task-form">
+          <form onSubmit={handleAddOrUpdateTask}>
             <input
               type="text"
               name="title"
               placeholder="Task title"
-              value={taskData.title}
+              value={formData.title}
               onChange={handleChange}
             />
 
             <textarea
               name="description"
               placeholder="Task description"
-              value={taskData.description}
+              rows="5"
+              value={formData.description}
               onChange={handleChange}
-              rows="4"
-            />
+            ></textarea>
 
             <select
               name="priority"
-              value={taskData.priority}
+              value={formData.priority}
               onChange={handleChange}
             >
               <option value="High">High Priority</option>
@@ -152,28 +200,30 @@ const TasksPage = () => {
 
             <select
               name="category"
-              value={taskData.category}
+              value={formData.category}
               onChange={handleChange}
             >
               <option value="Work">Work</option>
-              <option value="Study">Study</option>
               <option value="Personal">Personal</option>
-              <option value="Health">Health</option>
+              <option value="Study">Study</option>
+              <option value="Other">Other</option>
             </select>
 
             <input
               type="date"
               name="dueDate"
-              value={taskData.dueDate}
+              value={formData.dueDate}
               onChange={handleChange}
             />
 
-            <button type="submit">+ Add Task</button>
+            <button type="submit">
+              {editTaskId ? "Update Task" : "+ Add Task"}
+            </button>
           </form>
         </div>
 
         <div className="task-list-card">
-          <div className="task-controls">
+          <div className="task-filters">
             <input
               type="text"
               placeholder="Search tasks..."
@@ -185,69 +235,71 @@ const TasksPage = () => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="All">All Status</option>
-              <option value="Completed">Completed</option>
-              <option value="Pending">Pending</option>
+              <option value="all">All Status</option>
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
             </select>
 
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
             >
-              <option value="All">All Priorities</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
+              <option value="all">All Priorities</option>
+              <option value="High">High Priority</option>
+              <option value="Medium">Medium Priority</option>
+              <option value="Low">Low Priority</option>
             </select>
           </div>
 
           <div className="task-list">
             {filteredTasks.length === 0 ? (
-              <div className="empty-state">
-                <p>No tasks found.</p>
-              </div>
+              <p className="no-task-text">No tasks found.</p>
             ) : (
               filteredTasks.map((task) => (
                 <div
                   key={task.id}
                   className={`task-item ${task.completed ? "completed" : ""}`}
                 >
-                  <div className="task-top">
-                    <div className="task-content">
+                  <div className="task-item-top">
+                    <div>
                       <h3>{task.title}</h3>
                       <p>{task.description || "No description added."}</p>
                     </div>
 
-                    <div className="task-badges">
-                      <span
-                        className={`badge priority ${task.priority.toLowerCase()}`}
-                      >
-                        {task.priority}
-                      </span>
-                      <span className="badge category">{task.category}</span>
-                    </div>
+                    <span className={`priority-badge ${task.priority.toLowerCase()}`}>
+                      {task.priority}
+                    </span>
                   </div>
 
-                  <div className="task-bottom">
-                    <div className="task-meta">
-                      <span>Due: {task.dueDate || "No date"}</span>
-                      <span>
-                        Status: {task.completed ? "Completed" : "Pending"}
-                      </span>
-                    </div>
+                  <div className="task-meta">
+                    <span>Category: {task.category}</span>
+                    <span>
+                      Due: {task.dueDate ? task.dueDate : "No due date"}
+                    </span>
+                    <span>Status: {task.completed ? "Completed" : "Pending"}</span>
+                  </div>
 
-                    <div className="task-actions">
-                      <button onClick={() => toggleTaskStatus(task.id)}>
-                        {task.completed ? "Undo" : "Complete"}
-                      </button>
-                      <button
-                        type="button"
-                        className="delete-btn"
-                        onClick={() => deleteTask(task.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
+                  <div className="task-actions">
+                    <button
+                      className="complete-btn"
+                      onClick={() => handleToggleComplete(task.id)}
+                    >
+                      {task.completed ? "Undo" : "Complete"}
+                    </button>
+
+                    <button
+                      className="edit-btn"
+                      onClick={() => handleEditTask(task)}
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      className="delete-btn"
+                      onClick={() => handleDeleteTask(task.id)}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))
@@ -257,6 +309,6 @@ const TasksPage = () => {
       </div>
     </div>
   );
-};
+}
 
-export default TasksPage;
+export default TaskPage;

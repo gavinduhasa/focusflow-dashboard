@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./App.css";
 import TasksPage from "./pages/TaskPage";
+import NotesPage from "./pages/NotesPage";
 
 function App() {
   const [activePage, setActivePage] = useState("dashboard");
@@ -12,7 +13,7 @@ function App() {
       case "tasks":
         return <TasksPage />;
       case "notes":
-        return <h1>Notes Page</h1>;
+        return <NotesPage />;
       case "goals":
         return <h1>Goals Page</h1>;
       case "analytics":
