@@ -1,7 +1,12 @@
 import { useState } from "react";
 import "./App.css";
+import DashboardPage from "./pages/DashboardPage";
 import TasksPage from "./pages/TaskPage";
 import NotesPage from "./pages/NotesPage";
+import GoalsPage from "./pages/GoalsPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import SettingsPage from "./pages/SettingsPage";
+
 
 function App() {
   const [activePage, setActivePage] = useState("dashboard");
@@ -9,19 +14,19 @@ function App() {
   const renderPage = () => {
     switch (activePage) {
       case "dashboard":
-        return <h1>Dashboard Page</h1>;
+        return <DashboardPage />;
       case "tasks":
         return <TasksPage />;
       case "notes":
         return <NotesPage />;
       case "goals":
-        return <h1>Goals Page</h1>;
+        return <GoalsPage />;
       case "analytics":
-        return <h1>Analytics Page</h1>;
+        return <AnalyticsPage />;
       case "settings":
-        return <h1>Settings Page</h1>;
+        return <SettingsPage />;
       default:
-        return <h1>Dashboard Page</h1>;
+        return <DashboardPage />;
     }
   };
 
