@@ -23,5 +23,6 @@ app.get("/", (req, res) => {
 
 app.use("/api/v1", testRoutes);
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/tasks", require("./routes/taskRoutes"));
 
 module.exports = app;
