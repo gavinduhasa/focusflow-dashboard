@@ -2,6 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const testRoutes = require("./routes/testRoutes");
 const authRoutes = require("./routes/authRoutes");
+const noteRoutes = require("./routes/noteRoutes");
+const goalRoutes = require("./routes/goalRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
 
 const app = express();
 
@@ -23,6 +26,9 @@ app.get("/", (req, res) => {
 
 app.use("/api/v1", testRoutes);
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/notes", noteRoutes);
 app.use("/api/v1/tasks", require("./routes/taskRoutes"));
+app.use("/api/v1/goals", goalRoutes);
+app.use("/api/v1/settings", settingsRoutes);
 
 module.exports = app;
