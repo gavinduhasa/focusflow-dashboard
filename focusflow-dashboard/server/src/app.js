@@ -5,6 +5,7 @@ const authRoutes = require("./routes/authRoutes");
 const noteRoutes = require("./routes/noteRoutes");
 const goalRoutes = require("./routes/goalRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 const app = express();
 
@@ -30,5 +31,6 @@ app.use("/api/v1/notes", noteRoutes);
 app.use("/api/v1/tasks", require("./routes/taskRoutes"));
 app.use("/api/v1/goals", goalRoutes);
 app.use("/api/v1/settings", settingsRoutes);
+app.use("/api/v1/analytics", analyticsRoutes);
 
 module.exports = app;
