@@ -140,3 +140,42 @@ body,
     padding: 16px;
   }
 }
+
+/* Make sidebar vertical layout */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Push footer to bottom */
+.sidebar-nav {
+  flex: 1;
+}
+
+/* Footer area */
+.sidebar-footer {
+  padding: 16px;
+}
+
+/* New professional logout button */
+.logout-btn {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: none;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Hover effect */
+.logout-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.25);
+}

@@ -9,12 +9,24 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import SettingsPage from "./pages/SettingsPage";
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    !!localStorage.getItem("token")
+  );
   const [activePage, setActivePage] = useState("dashboard");
 
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setIsLoggedIn(false);
+  };
+
   if (!isLoggedIn) {
-  return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
-}
+    return <LoginPage onLogin={handleLogin} />;
+  }
 
   const renderPage = () => {
     switch (activePage) {
@@ -84,9 +96,11 @@ function App() {
           </p>
         </nav>
 
-        <button className="logout-btn" onClick={() => setIsLoggedIn(false)}>
-          Logout
-        </button>
+        <div className="sidebar-footer">
+          <button className="logout-btn" onClick={() => setIsLoggedIn(false)}>
+            🔓 Logout
+          </button>
+        </div>
       </aside>
 
       <main className="main">

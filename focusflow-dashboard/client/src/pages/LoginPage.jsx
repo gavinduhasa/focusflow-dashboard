@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { loginUser } from "../api/authApi";
 import "../styles/LoginPage.css";
 
 function LoginPage({ onLogin }) {
@@ -7,6 +8,7 @@ function LoginPage({ onLogin }) {
         email: "",
         password: "",
     });
+    const [error, setError] = useState("");
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -17,16 +19,30 @@ function LoginPage({ onLogin }) {
         }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setError("");
 
         if (!formData.email.trim() || !formData.password.trim()) {
-            alert("Please fill in all fields");
+            setError("Please fill in all fields");
             return;
         }
 
-        onLogin();
+        try {
+            const data = await loginUser(formData);
+
+            localStorage.setItem("token", data.token);
+
+            if (data.user) {
+                localStorage.setItem("user", JSON.stringify(data.user));
+            }
+
+            onLogin();
+        } catch (err) {
+            setError(err.response?.data?.message || "Login failed");
+        }
     };
+
     return (
         <div className="login-page">
             <div className="login-wrapper">
@@ -85,6 +101,8 @@ function LoginPage({ onLogin }) {
                                     </button>
                                 </div>
                             </div>
+
+                            {error && <p className="error-text">{error}</p>}
 
                             <button type="submit" className="login-btn">
                                 Sign In
