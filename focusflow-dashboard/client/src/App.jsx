@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./App.css";
+import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import TasksPage from "./pages/TaskPage";
 import NotesPage from "./pages/NotesPage";
@@ -7,9 +8,13 @@ import GoalsPage from "./pages/GoalsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import SettingsPage from "./pages/SettingsPage";
 
-
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activePage, setActivePage] = useState("dashboard");
+
+  if (!isLoggedIn) {
+  return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
+}
 
   const renderPage = () => {
     switch (activePage) {
@@ -78,6 +83,10 @@ function App() {
             ⚙️ Settings
           </p>
         </nav>
+
+        <button className="logout-btn" onClick={() => setIsLoggedIn(false)}>
+          Logout
+        </button>
       </aside>
 
       <main className="main">
