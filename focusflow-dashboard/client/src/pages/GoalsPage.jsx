@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import "../styles/GoalsPage.css";
+import {
+  getGoals,
+  createGoal,
+  updateGoal,
+  deleteGoal,
+} from "../api/goalApi";
 
 function GoalsPage() {
   const [goals, setGoals] = useState([]);
@@ -18,15 +24,17 @@ function GoalsPage() {
   const [editGoalId, setEditGoalId] = useState(null);
 
   useEffect(() => {
-    const savedGoals = localStorage.getItem("focusflow_goals");
-    if (savedGoals) {
-      setGoals(JSON.parse(savedGoals));
-    }
-  }, []);
+    const fetchGoals = async () => {
+      try {
+        const data = await getGoals();
+        setGoals(data);
+      } catch (err) {
+        console.error("Failed to load goals", err);
+      }
+    };
 
-  useEffect(() => {
-    localStorage.setItem("focusflow_goals", JSON.stringify(goals));
-  }, [goals]);
+    fetchGoals();
+  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -79,7 +87,7 @@ function GoalsPage() {
     return "normal";
   };
 
-  const handleAddOrUpdateGoal = (e) => {
+  const handleAddOrUpdateGoal = async (e) => {
     e.preventDefault();
 
     if (!formData.title.trim()) {
@@ -92,80 +100,104 @@ function GoalsPage() {
       return;
     }
 
-    if (editGoalId) {
-      setGoals((prevGoals) =>
-        prevGoals.map((goal) =>
-          goal.id === editGoalId
-            ? {
-                ...goal,
-                title: formData.title,
-                description: formData.description,
-                category: formData.category,
-                deadline: formData.deadline,
-                progress: formData.progress,
-              }
-            : goal
-        )
-      );
+    try {
+      if (editGoalId) {
+        const existingGoal = goals.find((goal) => goal.id === editGoalId);
+
+        const updatedGoal = await updateGoal(editGoalId, {
+          ...existingGoal,
+          ...formData,
+        });
+
+        setGoals((prevGoals) =>
+          prevGoals.map((goal) =>
+            goal.id === editGoalId
+              ? {
+                  ...updatedGoal,
+                  category: formData.category,
+                }
+              : goal
+          )
+        );
+
+        resetForm();
+        return;
+      }
+
+      const createdGoal = await createGoal(formData);
+
+      setGoals((prevGoals) => [
+        {
+          ...createdGoal,
+          category: formData.category,
+        },
+        ...prevGoals,
+      ]);
+
       resetForm();
-      return;
+    } catch (err) {
+      console.error("Failed to save goal", err);
+      alert("Failed to save goal");
     }
-
-    const newGoal = {
-      id: Date.now(),
-      title: formData.title,
-      description: formData.description,
-      category: formData.category,
-      deadline: formData.deadline,
-      progress: formData.progress,
-      createdAt: new Date().toISOString(),
-    };
-
-    setGoals((prevGoals) => [newGoal, ...prevGoals]);
-    resetForm();
   };
 
-  const handleDeleteGoal = (id) => {
+  const handleDeleteGoal = async (id) => {
     const confirmDelete = window.confirm("Are you sure you want to delete this goal?");
     if (!confirmDelete) return;
 
-    setGoals((prevGoals) => prevGoals.filter((goal) => goal.id !== id));
+    try {
+      await deleteGoal(id);
+      setGoals((prevGoals) => prevGoals.filter((goal) => goal.id !== id));
 
-    if (editGoalId === id) {
-      resetForm();
+      if (editGoalId === id) {
+        resetForm();
+      }
+    } catch (err) {
+      console.error("Failed to delete goal", err);
+      alert("Failed to delete goal");
     }
   };
 
   const handleEditGoal = (goal) => {
     setEditGoalId(goal.id);
     setFormData({
-      title: goal.title,
-      description: goal.description,
-      category: goal.category,
-      deadline: goal.deadline,
-      progress: goal.progress,
+      title: goal.title || "",
+      description: goal.description || "",
+      category: goal.category || "Personal",
+      deadline: goal.deadline || "",
+      progress: goal.progress || 0,
     });
   };
 
-  const handleQuickProgress = (id, action) => {
-    setGoals((prevGoals) =>
-      prevGoals.map((goal) => {
-        if (goal.id !== id) return goal;
+  const handleQuickProgress = async (goal, action) => {
+    let updatedProgress = goal.progress;
 
-        let updatedProgress = goal.progress;
+    if (action === "increase") {
+      updatedProgress = Math.min(goal.progress + 10, 100);
+    } else if (action === "decrease") {
+      updatedProgress = Math.max(goal.progress - 10, 0);
+    }
 
-        if (action === "increase") {
-          updatedProgress = Math.min(goal.progress + 10, 100);
-        } else if (action === "decrease") {
-          updatedProgress = Math.max(goal.progress - 10, 0);
-        }
+    try {
+      const updatedGoal = await updateGoal(goal.id, {
+        ...goal,
+        progress: updatedProgress,
+      });
 
-        return {
-          ...goal,
-          progress: updatedProgress,
-        };
-      })
-    );
+      setGoals((prevGoals) =>
+        prevGoals.map((g) =>
+          g.id === goal.id
+            ? {
+                ...updatedGoal,
+                category: goal.category || "Other",
+              }
+            : g
+        )
+      );
+    } catch (err) {
+      console.error("Failed to update goal progress", err);
+      alert("Failed to update goal progress");
+    }
   };
 
   const filteredGoals = useMemo(() => {
@@ -173,8 +205,8 @@ function GoalsPage() {
       const status = getGoalStatus(goal.progress);
 
       const matchesSearch =
-        goal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        goal.description.toLowerCase().includes(searchTerm.toLowerCase());
+        (goal.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (goal.description || "").toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStatus =
         statusFilter === "all"
@@ -323,13 +355,13 @@ function GoalsPage() {
             {filteredGoals.length === 0 ? (
               <p className="no-goals-text">No goals found.</p>
             ) : (
-              filteredGoals.map((goal) => {
+              filteredGoals.map((goal, index) => {
                 const status = getGoalStatus(goal.progress);
                 const smartMessage = getSmartMessage(goal.progress);
                 const deadlineState = getDeadlineState(goal.deadline, goal.progress);
 
                 return (
-                  <div key={goal.id} className="goal-item">
+                  <div key={goal.id || index} className="goal-item">
                     <div className="goal-item-top">
                       <div>
                         <h3>{goal.title}</h3>
@@ -337,8 +369,12 @@ function GoalsPage() {
                       </div>
 
                       <div className="goal-badges">
-                        <span className={`goal-category-badge ${goal.category.toLowerCase()}`}>
-                          {goal.category}
+                        <span
+                          className={`goal-category-badge ${(
+                            goal.category || "Other"
+                          ).toLowerCase()}`}
+                        >
+                          {goal.category || "Other"}
                         </span>
                         <span
                           className={`goal-status-badge ${status
@@ -365,9 +401,7 @@ function GoalsPage() {
                     </div>
 
                     <div className="goal-meta">
-                      <span
-                        className={`goal-deadline ${deadlineState}`}
-                      >
+                      <span className={`goal-deadline ${deadlineState}`}>
                         Deadline: {goal.deadline || "No deadline"}
                       </span>
                       <span className="goal-message">{smartMessage}</span>
@@ -376,14 +410,14 @@ function GoalsPage() {
                     <div className="goal-actions">
                       <button
                         className="progress-down-btn"
-                        onClick={() => handleQuickProgress(goal.id, "decrease")}
+                        onClick={() => handleQuickProgress(goal, "decrease")}
                       >
                         -10%
                       </button>
 
                       <button
                         className="progress-up-btn"
-                        onClick={() => handleQuickProgress(goal.id, "increase")}
+                        onClick={() => handleQuickProgress(goal, "increase")}
                       >
                         +10%
                       </button>

@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import "../styles/NotesPage.css";
+import {
+  getNotes,
+  createNote,
+  updateNote,
+  deleteNote,
+} from "../api/noteApi";
 
 function NotesPage() {
   const [notes, setNotes] = useState([]);
@@ -16,15 +22,17 @@ function NotesPage() {
   const [editNoteId, setEditNoteId] = useState(null);
 
   useEffect(() => {
-    const savedNotes = localStorage.getItem("focusflow_notes");
-    if (savedNotes) {
-      setNotes(JSON.parse(savedNotes));
-    }
-  }, []);
+    const fetchNotes = async () => {
+      try {
+        const data = await getNotes();
+        setNotes(data);
+      } catch (err) {
+        console.error("Failed to load notes", err);
+      }
+    };
 
-  useEffect(() => {
-    localStorage.setItem("focusflow_notes", JSON.stringify(notes));
-  }, [notes]);
+    fetchNotes();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -45,7 +53,7 @@ function NotesPage() {
     setEditNoteId(null);
   };
 
-  const handleAddOrUpdateNote = (e) => {
+  const handleAddOrUpdateNote = async (e) => {
     e.preventDefault();
 
     if (!formData.title.trim()) {
@@ -58,71 +66,100 @@ function NotesPage() {
       return;
     }
 
-    if (editNoteId) {
-      setNotes((prevNotes) =>
-        prevNotes.map((note) =>
-          note.id === editNoteId
-            ? {
-                ...note,
-                title: formData.title,
-                content: formData.content,
-                category: formData.category,
-                pinned: formData.pinned,
-              }
-            : note
-        )
-      );
+    try {
+      if (editNoteId) {
+        const updatedNote = await updateNote(editNoteId, formData);
+
+        setNotes((prevNotes) =>
+          prevNotes.map((note) =>
+            note.id === editNoteId
+              ? {
+                  ...updatedNote,
+                  category: formData.category,
+                }
+              : note
+          )
+        );
+
+        resetForm();
+        return;
+      }
+
+      const createdNote = await createNote(formData);
+
+      setNotes((prevNotes) => [
+        {
+          ...createdNote,
+          category: formData.category,
+        },
+        ...prevNotes,
+      ]);
+
       resetForm();
-      return;
+    } catch (err) {
+      console.error("Failed to save note", err);
+      alert("Failed to save note");
     }
-
-    const newNote = {
-      id: Date.now(),
-      title: formData.title,
-      content: formData.content,
-      category: formData.category,
-      pinned: formData.pinned,
-      createdAt: new Date().toISOString(),
-    };
-
-    setNotes((prevNotes) => [newNote, ...prevNotes]);
-    resetForm();
   };
 
-  const handleDeleteNote = (id) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this note?");
+  const handleDeleteNote = async (id) => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this note?"
+    );
     if (!confirmDelete) return;
 
-    setNotes((prevNotes) => prevNotes.filter((note) => note.id !== id));
+    try {
+      await deleteNote(id);
+      setNotes((prevNotes) => prevNotes.filter((note) => note.id !== id));
 
-    if (editNoteId === id) {
-      resetForm();
+      if (editNoteId === id) {
+        resetForm();
+      }
+    } catch (err) {
+      console.error("Failed to delete note", err);
+      alert("Failed to delete note");
     }
   };
 
   const handleEditNote = (note) => {
     setEditNoteId(note.id);
     setFormData({
-      title: note.title,
-      content: note.content,
-      category: note.category,
-      pinned: note.pinned,
+      title: note.title || "",
+      content: note.content || "",
+      category: note.category || "Work",
+      pinned: note.pinned || false,
     });
   };
 
-  const handleTogglePin = (id) => {
-    setNotes((prevNotes) =>
-      prevNotes.map((note) =>
-        note.id === id ? { ...note, pinned: !note.pinned } : note
-      )
-    );
+  const handleTogglePin = async (note) => {
+    try {
+      const updatedNote = await updateNote(note.id, {
+        title: note.title,
+        content: note.content,
+        pinned: !note.pinned,
+      });
+
+      setNotes((prevNotes) =>
+        prevNotes.map((n) =>
+          n.id === note.id
+            ? {
+                ...updatedNote,
+                category: note.category || "Other",
+              }
+            : n
+        )
+      );
+    } catch (err) {
+      console.error("Failed to update pin status", err);
+      alert("Failed to update pin status");
+    }
   };
 
   const filteredNotes = notes
     .filter((note) => {
       const matchesSearch =
-        note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        note.content.toLowerCase().includes(searchTerm.toLowerCase());
+        (note.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (note.content || "").toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesCategory =
         categoryFilter === "all" ? true : note.category === categoryFilter;
@@ -133,7 +170,9 @@ function NotesPage() {
 
   const totalNotes = notes.length;
   const pinnedNotes = notes.filter((note) => note.pinned).length;
-  const categoriesCount = new Set(notes.map((note) => note.category)).size;
+  const categoriesCount = new Set(
+    notes.map((note) => note.category || "Other")
+  ).size;
 
   return (
     <div className="notes-page">
@@ -234,17 +273,21 @@ function NotesPage() {
             {filteredNotes.length === 0 ? (
               <p className="no-notes-text">No notes found.</p>
             ) : (
-              filteredNotes.map((note) => (
+              filteredNotes.map((note, index) => (
                 <div
-                  key={note.id}
+                  key={note.id || index}
                   className={`note-item ${note.pinned ? "pinned-note" : ""}`}
                 >
                   <div className="note-top">
                     <h3>{note.title}</h3>
                     <div className="note-badges">
                       {note.pinned && <span className="pinned-badge">Pinned</span>}
-                      <span className={`category-badge ${note.category.toLowerCase()}`}>
-                        {note.category}
+                      <span
+                        className={`category-badge ${(
+                          note.category || "Other"
+                        ).toLowerCase()}`}
+                      >
+                        {note.category || "Other"}
                       </span>
                     </div>
                   </div>
@@ -254,7 +297,7 @@ function NotesPage() {
                   <div className="note-actions">
                     <button
                       className="pin-btn"
-                      onClick={() => handleTogglePin(note.id)}
+                      onClick={() => handleTogglePin(note)}
                     >
                       {note.pinned ? "Unpin" : "Pin"}
                     </button>

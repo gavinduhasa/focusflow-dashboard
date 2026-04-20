@@ -6,53 +6,60 @@ const getDashboardAnalytics = async (req, res) => {
 
         const totalTasksQuery = pool.query(
             `SELECT COUNT(*)::int AS total_tasks
-       FROM tasks
-       WHERE user_id = $1`,
+             FROM tasks
+             WHERE user_id = $1`,
             [userId]
         );
 
         const completedTasksQuery = pool.query(
             `SELECT COUNT(*)::int AS completed_tasks
-       FROM tasks
-       WHERE user_id = $1 AND status = 'completed'`,
+             FROM tasks
+             WHERE user_id = $1 AND status = 'completed'`,
             [userId]
         );
 
         const pendingTasksQuery = pool.query(
             `SELECT COUNT(*)::int AS pending_tasks
-       FROM tasks
-       WHERE user_id = $1 AND status != 'completed'`,
+             FROM tasks
+             WHERE user_id = $1 AND status != 'completed'`,
             [userId]
         );
 
         const overdueTasksQuery = pool.query(
             `SELECT COUNT(*)::int AS overdue_tasks
-       FROM tasks
-       WHERE user_id = $1
-         AND due_date IS NOT NULL
-         AND due_date < NOW()
-         AND status != 'completed'`,
+             FROM tasks
+             WHERE user_id = $1
+               AND due_date IS NOT NULL
+               AND due_date < NOW()
+               AND status != 'completed'`,
             [userId]
         );
 
         const totalNotesQuery = pool.query(
             `SELECT COUNT(*)::int AS total_notes
-       FROM notes
-       WHERE user_id = $1`,
+             FROM notes
+             WHERE user_id = $1`,
+            [userId]
+        );
+
+        const pinnedNotesQuery = pool.query(
+            `SELECT COUNT(*)::int AS pinned_notes
+             FROM notes
+             WHERE user_id = $1 AND is_pinned = true`,
             [userId]
         );
 
         const totalGoalsQuery = pool.query(
             `SELECT COUNT(*)::int AS total_goals
-       FROM goals
-       WHERE user_id = $1`,
+             FROM goals
+             WHERE user_id = $1`,
             [userId]
         );
 
         const completedGoalsQuery = pool.query(
             `SELECT COUNT(*)::int AS completed_goals
-       FROM goals
-       WHERE user_id = $1 AND status = 'completed'`,
+             FROM goals
+             WHERE user_id = $1 AND status = 'completed'`,
             [userId]
         );
 
@@ -62,6 +69,7 @@ const getDashboardAnalytics = async (req, res) => {
             pendingTasksResult,
             overdueTasksResult,
             totalNotesResult,
+            pinnedNotesResult,
             totalGoalsResult,
             completedGoalsResult,
         ] = await Promise.all([
@@ -70,6 +78,7 @@ const getDashboardAnalytics = async (req, res) => {
             pendingTasksQuery,
             overdueTasksQuery,
             totalNotesQuery,
+            pinnedNotesQuery,
             totalGoalsQuery,
             completedGoalsQuery,
         ]);
@@ -79,6 +88,7 @@ const getDashboardAnalytics = async (req, res) => {
         const pendingTasks = pendingTasksResult.rows[0].pending_tasks;
         const overdueTasks = overdueTasksResult.rows[0].overdue_tasks;
         const totalNotes = totalNotesResult.rows[0].total_notes;
+        const pinnedNotes = pinnedNotesResult.rows[0].pinned_notes;
         const totalGoals = totalGoalsResult.rows[0].total_goals;
         const completedGoals = completedGoalsResult.rows[0].completed_goals;
 
@@ -93,6 +103,7 @@ const getDashboardAnalytics = async (req, res) => {
                 pendingTasks,
                 overdueTasks,
                 totalNotes,
+                pinnedNotes,
                 totalGoals,
                 completedGoals,
                 completionRate,

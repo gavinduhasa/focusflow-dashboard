@@ -1,27 +1,97 @@
 import { useEffect, useMemo, useState } from "react";
+import { getSummary } from "../api/analyticsApi";
 import "../styles/DashboardPage.css";
 
 function DashboardPage() {
-  const [tasks, setTasks] = useState([]);
-  const [notes, setNotes] = useState([]);
-  const [goals, setGoals] = useState([]);
+  const [summary, setSummary] = useState({
+    totalTasks: 0,
+    completedTasks: 0,
+    pendingTasks: 0,
+    totalNotes: 0,
+    pinnedNotes: 0,
+    totalGoals: 0,
+    completedGoals: 0,
+    productivityScore: 0,
+    taskCompletionRate: 0,
+    goalCompletionRate: 0,
+  });
+
   const [settings, setSettings] = useState({
     displayName: "",
     theme: "light",
   });
 
-  useEffect(() => {
-    const savedTasks = JSON.parse(localStorage.getItem("focusflow_tasks")) || [];
-    const savedNotes = JSON.parse(localStorage.getItem("focusflow_notes")) || [];
-    const savedGoals = JSON.parse(localStorage.getItem("focusflow_goals")) || [];
-    const savedSettings =
-      JSON.parse(localStorage.getItem("focusflow_settings")) || {};
+  const [loading, setLoading] = useState(true);
 
-    setTasks(savedTasks);
-    setNotes(savedNotes);
-    setGoals(savedGoals);
-    setSettings((prev) => ({ ...prev, ...savedSettings }));
-  }, []);
+  // useEffect(() => {
+  //   const fetchDashboardData = async () => {
+  //     try {
+  //       const data = await getSummary();
+
+  //       setSummary({
+  //         totalTasks: data.totalTasks || 0,
+  //         completedTasks: data.completedTasks || 0,
+  //         pendingTasks: data.pendingTasks || 0,
+  //         totalNotes: data.totalNotes || 0,
+  //         pinnedNotes: data.pinnedNotes || 0,
+  //         totalGoals: data.totalGoals || 0,
+  //         completedGoals: data.completedGoals || 0,
+  //         productivityScore: data.productivityScore || 0,
+  //         taskCompletionRate: data.taskCompletionRate || 0,
+  //         goalCompletionRate: data.goalCompletionRate || 0,
+  //       });
+
+  //       const savedUser = JSON.parse(localStorage.getItem("user")) || {};
+  //       const savedSettings =
+  //         JSON.parse(localStorage.getItem("focusflow_settings")) || {};
+
+  //       setSettings((prev) => ({
+  //         ...prev,
+  //         ...savedSettings,
+  //         displayName:
+  //           savedSettings.displayName ||
+  //           savedUser.displayName ||
+  //           savedUser.name ||
+  //           "",
+  //       }));
+  //     } catch (err) {
+  //       console.error("Failed to load dashboard summary", err);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //   fetchDashboardData();
+  // }, []);
+
+  useEffect(() => {
+  const fetchDashboardData = async () => {
+    try {
+      const data = await getSummary();
+      setSummary(data);
+
+      const savedUser = JSON.parse(localStorage.getItem("user")) || {};
+      const savedSettings =
+        JSON.parse(localStorage.getItem("focusflow_settings")) || {};
+
+      setSettings((prev) => ({
+        ...prev,
+        ...savedSettings,
+        displayName:
+          savedSettings.displayName ||
+          savedUser.displayName ||
+          savedUser.name ||
+          "",
+      }));
+    } catch (err) {
+      console.error("Failed to load dashboard summary", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchDashboardData();
+}, []);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -31,104 +101,21 @@ function DashboardPage() {
     return "Good evening";
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "No date";
-    return new Date(dateString).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const getDaysLeft = (dateString) => {
-    if (!dateString) return null;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const dueDate = new Date(dateString);
-    dueDate.setHours(0, 0, 0, 0);
-
-    const diffTime = dueDate - today;
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
-  const getDeadlineLabel = (dateString) => {
-    const daysLeft = getDaysLeft(dateString);
-
-    if (daysLeft === null) return "No deadline";
-    if (daysLeft < 0) return "Overdue";
-    if (daysLeft === 0) return "Due today";
-    if (daysLeft === 1) return "Due tomorrow";
-    return `${daysLeft} days left`;
-  };
-
-  const getDeadlineClass = (dateString) => {
-    const daysLeft = getDaysLeft(dateString);
-
-    if (daysLeft === null) return "normal";
-    if (daysLeft < 0) return "overdue";
-    if (daysLeft <= 2) return "urgent";
-    return "normal";
-  };
-
   const dashboardData = useMemo(() => {
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((task) => task.completed).length;
-    const pendingTasks = tasks.filter((task) => !task.completed).length;
-
-    const totalNotes = notes.length;
-    const pinnedNotes = notes.filter((note) => note.pinned);
-    const recentNotes = [...notes]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 4);
-
-    const totalGoals = goals.length;
-    const completedGoals = goals.filter((goal) => goal.progress === 100).length;
-    const activeGoals = goals.filter(
-      (goal) => goal.progress > 0 && goal.progress < 100
-    );
-
-    const upcomingTasks = [...tasks]
-      .filter((task) => !task.completed && task.dueDate)
-      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-      .slice(0, 5);
-
-    const topGoals = [...goals]
-      .filter((goal) => goal.progress < 100)
-      .sort((a, b) => b.progress - a.progress)
-      .slice(0, 4);
-
-    const taskCompletionRate =
-      totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
-
-    const goalCompletionRate =
-      totalGoals === 0 ? 0 : Math.round((completedGoals / totalGoals) * 100);
-
-    const noteActivityRate =
-      totalNotes === 0 ? 0 : Math.round((pinnedNotes.length / totalNotes) * 100);
-
-    const productivityScore = Math.round(
-      taskCompletionRate * 0.45 + goalCompletionRate * 0.4 + noteActivityRate * 0.15
-    );
-
     return {
-      totalTasks,
-      completedTasks,
-      pendingTasks,
-      totalNotes,
-      pinnedNotes,
-      recentNotes,
-      totalGoals,
-      completedGoals,
-      activeGoals,
-      upcomingTasks,
-      topGoals,
-      taskCompletionRate,
-      goalCompletionRate,
-      productivityScore,
+      totalTasks: summary.totalTasks,
+      completedTasks: summary.completedTasks,
+      pendingTasks: summary.pendingTasks,
+      totalNotes: summary.totalNotes,
+      pinnedNotesCount: summary.pinnedNotes,
+      totalGoals: summary.totalGoals,
+      completedGoals: summary.completedGoals,
+      activeGoals: Math.max(summary.totalGoals - summary.completedGoals, 0),
+      taskCompletionRate: summary.taskCompletionRate,
+      goalCompletionRate: summary.goalCompletionRate,
+      productivityScore: summary.productivityScore,
     };
-  }, [tasks, notes, goals]);
+  }, [summary]);
 
   const productivityLevel =
     dashboardData.productivityScore >= 75
@@ -145,6 +132,20 @@ function DashboardPage() {
       : "Start with one important task today and build momentum step by step.";
 
   const displayName = settings.displayName?.trim() || "there";
+
+  if (loading) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-hero">
+          <div className="dashboard-hero-content">
+            <span className="dashboard-badge">FocusFlow Workspace</span>
+            <h1>Loading dashboard...</h1>
+            <p>Please wait while we load your productivity overview.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-page">
@@ -189,7 +190,7 @@ function DashboardPage() {
             <span>Total Notes</span>
             <h3>{dashboardData.totalNotes}</h3>
           </div>
-          <p>{dashboardData.pinnedNotes.length} pinned notes</p>
+          <p>{dashboardData.pinnedNotesCount} pinned notes</p>
         </div>
 
         <div className="dashboard-stat-card">
@@ -244,115 +245,6 @@ function DashboardPage() {
         <div className="dashboard-card">
           <div className="card-header">
             <div>
-              <h2>Upcoming Tasks</h2>
-              <p>What needs attention next</p>
-            </div>
-          </div>
-
-          <div className="dashboard-list">
-            {dashboardData.upcomingTasks.length === 0 ? (
-              <div className="empty-state">No upcoming tasks yet.</div>
-            ) : (
-              dashboardData.upcomingTasks.map((task) => (
-                <div key={task.id} className="list-item">
-                  <div className="list-item-content">
-                    <h4>{task.title}</h4>
-                    <p>{task.category}</p>
-                  </div>
-
-                  <div className="list-item-meta">
-                    <span className={`deadline-badge ${getDeadlineClass(task.dueDate)}`}>
-                      {getDeadlineLabel(task.dueDate)}
-                    </span>
-                    <small>{formatDate(task.dueDate)}</small>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="dashboard-card">
-          <div className="card-header">
-            <div>
-              <h2>Pinned & Recent Notes</h2>
-              <p>Quick access to important ideas</p>
-            </div>
-          </div>
-
-          <div className="notes-preview-list">
-            {(dashboardData.pinnedNotes.length > 0
-              ? dashboardData.pinnedNotes.slice(0, 3)
-              : dashboardData.recentNotes
-            ).length === 0 ? (
-              <div className="empty-state">No notes available yet.</div>
-            ) : (
-              (dashboardData.pinnedNotes.length > 0
-                ? dashboardData.pinnedNotes.slice(0, 3)
-                : dashboardData.recentNotes
-              ).map((note) => (
-                <div key={note.id} className="note-preview-card">
-                  <div className="note-preview-top">
-                    <h4>{note.title}</h4>
-                    <span className={`note-category ${note.category?.toLowerCase() || "other"}`}>
-                      {note.category || "Other"}
-                    </span>
-                  </div>
-                  <p>
-                    {note.content?.length > 110
-                      ? `${note.content.slice(0, 110)}...`
-                      : note.content}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="dashboard-card wide-card">
-          <div className="card-header">
-            <div>
-              <h2>Goal Progress</h2>
-              <p>Your active goals and progress status</p>
-            </div>
-          </div>
-
-          <div className="goals-progress-list">
-            {dashboardData.topGoals.length === 0 ? (
-              <div className="empty-state">No active goals yet.</div>
-            ) : (
-              dashboardData.topGoals.map((goal) => (
-                <div key={goal.id} className="goal-progress-item">
-                  <div className="goal-progress-head">
-                    <div>
-                      <h4>{goal.title}</h4>
-                      <p>{goal.category}</p>
-                    </div>
-                    <strong>{goal.progress}%</strong>
-                  </div>
-
-                  <div className="progress-bar large-progress">
-                    <div
-                      className="progress-fill gradient-fill"
-                      style={{ width: `${goal.progress}%` }}
-                    ></div>
-                  </div>
-
-                  <div className="goal-progress-footer">
-                    <span className={`deadline-badge ${getDeadlineClass(goal.deadline)}`}>
-                      {getDeadlineLabel(goal.deadline)}
-                    </span>
-                    <small>{goal.deadline ? formatDate(goal.deadline) : "No deadline"}</small>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="dashboard-card">
-          <div className="card-header">
-            <div>
               <h2>Quick Summary</h2>
               <p>Your real-time app overview</p>
             </div>
@@ -366,12 +258,12 @@ function DashboardPage() {
 
             <div className="summary-item">
               <span>Active Goals</span>
-              <strong>{dashboardData.activeGoals.length}</strong>
+              <strong>{dashboardData.activeGoals}</strong>
             </div>
 
             <div className="summary-item">
               <span>Pinned Notes</span>
-              <strong>{dashboardData.pinnedNotes.length}</strong>
+              <strong>{dashboardData.pinnedNotesCount}</strong>
             </div>
 
             <div className="summary-item">

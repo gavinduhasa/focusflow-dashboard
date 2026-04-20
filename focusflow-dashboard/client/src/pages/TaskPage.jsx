@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import "../styles/TaskPage.css";
+import {
+  getTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+} from "../api/taskApi";
 
 function TaskPage() {
   const [tasks, setTasks] = useState([]);
@@ -17,18 +23,18 @@ function TaskPage() {
 
   const [editTaskId, setEditTaskId] = useState(null);
 
-  // Load from localStorage
   useEffect(() => {
-    const savedTasks = localStorage.getItem("focusflow_tasks");
-    if (savedTasks) {
-      setTasks(JSON.parse(savedTasks));
-    }
-  }, []);
+    const fetchTasks = async () => {
+      try {
+        const data = await getTasks();
+        setTasks(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load tasks", err);
+      }
+    };
 
-  // Save to localStorage
-  useEffect(() => {
-    localStorage.setItem("focusflow_tasks", JSON.stringify(tasks));
-  }, [tasks]);
+    fetchTasks();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -38,7 +44,7 @@ function TaskPage() {
     }));
   };
 
-  const handleAddOrUpdateTask = (e) => {
+  const handleAddOrUpdateTask = async (e) => {
     e.preventDefault();
 
     if (!formData.title.trim()) {
@@ -46,50 +52,39 @@ function TaskPage() {
       return;
     }
 
-    if (editTaskId) {
-      setTasks((prevTasks) =>
-        prevTasks.map((task) =>
-          task.id === editTaskId
-            ? {
-                ...task,
-                ...formData,
-              }
-            : task
-        )
-      );
-      setEditTaskId(null);
-    } else {
-      const newTask = {
-        id: Date.now(),
-        title: formData.title,
-        description: formData.description,
-        priority: formData.priority,
-        category: formData.category,
-        dueDate: formData.dueDate,
-        completed: false,
-        createdAt: new Date().toISOString(),
-      };
+    try {
+      if (editTaskId) {
+        const taskData = {
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          priority: formData.priority,
+          dueDate: formData.dueDate,
+        };
 
-      setTasks((prevTasks) => [...prevTasks, newTask]);
-    }
+        const updatedTask = await updateTask(editTaskId, taskData);
 
-    setFormData({
-      title: "",
-      description: "",
-      priority: "Medium",
-      category: "Work",
-      dueDate: "",
-    });
-  };
+        setTasks((prevTasks) =>
+          prevTasks.map((task) =>
+            task.id === editTaskId ? updatedTask : task
+          )
+        );
 
-  const handleDeleteTask = (id) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this task?");
-    if (!confirmDelete) return;
+        setEditTaskId(null);
+      } else {
+        const newTask = {
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          priority: formData.priority,
+          dueDate: formData.dueDate,
+          status: "pending",
+        };
 
-    setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
+        const createdTask = await createTask(newTask);
+        setTasks((prev) => [...prev, createdTask]);
+      }
 
-    if (editTaskId === id) {
-      setEditTaskId(null);
       setFormData({
         title: "",
         description: "",
@@ -97,48 +92,91 @@ function TaskPage() {
         category: "Work",
         dueDate: "",
       });
+    } catch (err) {
+      console.error("Failed to save task", err);
+      alert("Failed to save task");
     }
   };
 
-  const handleToggleComplete = (id) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === id
-          ? { ...task, completed: !task.completed }
-          : task
-      )
+  const handleDeleteTask = async (id) => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this task?"
     );
+    if (!confirmDelete) return;
+
+    try {
+      await deleteTask(id);
+      setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
+
+      if (editTaskId === id) {
+        setEditTaskId(null);
+        setFormData({
+          title: "",
+          description: "",
+          priority: "Medium",
+          category: "Work",
+          dueDate: "",
+        });
+      }
+    } catch (err) {
+      console.error("Failed to delete task", err);
+      alert("Failed to delete task");
+    }
+  };
+
+  const handleToggleComplete = async (task) => {
+    try {
+      const updatedTask = await updateTask(task.id, {
+        status: task.status === "completed" ? "pending" : "completed",
+      });
+
+      setTasks((prevTasks) =>
+        prevTasks.map((t) => (t.id === task.id ? updatedTask : t))
+      );
+    } catch (err) {
+      console.error("Failed to update task status", err);
+      alert("Failed to update task status");
+    }
   };
 
   const handleEditTask = (task) => {
     setEditTaskId(task.id);
     setFormData({
-      title: task.title,
-      description: task.description,
-      priority: task.priority,
-      category: task.category,
-      dueDate: task.dueDate,
+      title: task.title || "",
+      description: task.description || "",
+      priority: task.priority || "Medium",
+      category: task.category || "Work",
+      dueDate: task.dueDate || "",
     });
   };
 
   const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((task) => task.completed).length;
-  const pendingTasks = tasks.filter((task) => !task.completed).length;
+  const completedTasks = tasks.filter(
+    (task) => task.status === "completed"
+  ).length;
+  const pendingTasks = tasks.filter(
+    (task) => task.status !== "completed"
+  ).length;
 
   const filteredTasks = tasks.filter((task) => {
+    const title = task.title || "";
+    const description = task.description || "";
+    const priority = task.priority || "Medium";
+    const isCompleted = task.status === "completed";
+
     const matchesSearch =
-      task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchTerm.toLowerCase());
+      title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      description.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
       statusFilter === "all"
         ? true
         : statusFilter === "completed"
-        ? task.completed
-        : !task.completed;
+        ? isCompleted
+        : !isCompleted;
 
     const matchesPriority =
-      priorityFilter === "all" ? true : task.priority === priorityFilter;
+      priorityFilter === "all" ? true : priority === priorityFilter;
 
     return matchesSearch && matchesStatus && matchesPriority;
   });
@@ -255,54 +293,63 @@ function TaskPage() {
             {filteredTasks.length === 0 ? (
               <p className="no-task-text">No tasks found.</p>
             ) : (
-              filteredTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className={`task-item ${task.completed ? "completed" : ""}`}
-                >
-                  <div className="task-item-top">
-                    <div>
-                      <h3>{task.title}</h3>
-                      <p>{task.description || "No description added."}</p>
+              filteredTasks.map((task, index) => {
+                const isCompleted = task.status === "completed";
+                const taskPriority = task.priority || "Medium";
+
+                return (
+                  <div
+                    key={task.id || index}
+                    className={`task-item ${isCompleted ? "completed" : ""}`}
+                  >
+                    <div className="task-item-top">
+                      <div>
+                        <h3>{task.title}</h3>
+                        <p>{task.description || "No description added."}</p>
+                      </div>
+
+                      <span
+                        className={`priority-badge ${taskPriority.toLowerCase()}`}
+                      >
+                        {taskPriority}
+                      </span>
                     </div>
 
-                    <span className={`priority-badge ${task.priority.toLowerCase()}`}>
-                      {task.priority}
-                    </span>
+                    <div className="task-meta">
+                      <span>Category: {task.category || "General"}</span>
+                      <span>
+                        Due: {task.dueDate ? task.dueDate : "No due date"}
+                      </span>
+                      <span>
+                        Status: {isCompleted ? "Completed" : "Pending"}
+                      </span>
+                    </div>
+
+                    <div className="task-actions">
+                      <button
+                        className="complete-btn"
+                        onClick={() => handleToggleComplete(task)}
+                      >
+                        {isCompleted ? "Undo" : "Complete"}
+                      </button>
+
+                      <button
+                        className="edit-btn"
+                        onClick={() => handleEditTask(task)}
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        className="delete-btn"
+                        onClick={() => handleDeleteTask(task.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="task-meta">
-                    <span>Category: {task.category}</span>
-                    <span>
-                      Due: {task.dueDate ? task.dueDate : "No due date"}
-                    </span>
-                    <span>Status: {task.completed ? "Completed" : "Pending"}</span>
-                  </div>
-
-                  <div className="task-actions">
-                    <button
-                      className="complete-btn"
-                      onClick={() => handleToggleComplete(task.id)}
-                    >
-                      {task.completed ? "Undo" : "Complete"}
-                    </button>
-
-                    <button
-                      className="edit-btn"
-                      onClick={() => handleEditTask(task)}
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      className="delete-btn"
-                      onClick={() => handleDeleteTask(task.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
