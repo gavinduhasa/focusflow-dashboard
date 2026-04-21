@@ -11,72 +11,112 @@ import {
   Cell,
   CartesianGrid,
   Legend,
+  LineChart,
+  Line,
 } from "recharts";
+import {
+  getDashboardSummary,
+  getTaskAnalytics,
+  getGoalAnalytics,
+} from "../api/analyticsApi";
 import "../styles/AnalyticsPage.css";
 
 function AnalyticsPage() {
-  const [tasks, setTasks] = useState([]);
-  const [notes, setNotes] = useState([]);
-  const [goals, setGoals] = useState([]);
+  const [summary, setSummary] = useState({
+    totalTasks: 0,
+    completedTasks: 0,
+    pendingTasks: 0,
+    totalNotes: 0,
+    pinnedNotes: 0,
+    totalGoals: 0,
+    completedGoals: 0,
+    taskCompletionRate: 0,
+    goalCompletionRate: 0,
+    productivityScore: 0,
+  });
+
+  const [taskAnalytics, setTaskAnalytics] = useState({
+    byStatus: [],
+    byPriority: [],
+    completedLast7Days: [],
+  });
+
+  const [goalAnalytics, setGoalAnalytics] = useState({
+    totalGoals: 0,
+    activeGoals: 0,
+    completedGoals: 0,
+    averageProgress: 0,
+  });
+
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedTasks = JSON.parse(localStorage.getItem("focusflow_tasks")) || [];
-    const savedNotes = JSON.parse(localStorage.getItem("focusflow_notes")) || [];
-    const savedGoals = JSON.parse(localStorage.getItem("focusflow_goals")) || [];
+    const fetchAnalytics = async () => {
+      try {
+        const [dashboardData, taskData, goalData] = await Promise.all([
+          getDashboardSummary(),
+          getTaskAnalytics(),
+          getGoalAnalytics(),
+        ]);
 
-    setTasks(savedTasks);
-    setNotes(savedNotes);
-    setGoals(savedGoals);
+        setSummary(dashboardData);
+        setTaskAnalytics(taskData);
+        setGoalAnalytics(goalData);
+      } catch (err) {
+        console.error("Failed to load analytics", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalytics();
   }, []);
 
   const analytics = useMemo(() => {
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((task) => task.completed).length;
-    const pendingTasks = totalTasks - completedTasks;
+    const inProgressGoals = Math.max(
+      goalAnalytics.activeGoals || 0,
+      0
+    );
 
-    const totalNotes = notes.length;
-    const pinnedNotes = notes.filter((note) => note.pinned).length;
-
-    const totalGoals = goals.length;
-    const completedGoals = goals.filter((goal) => goal.progress === 100).length;
-    const inProgressGoals = goals.filter(
-      (goal) => goal.progress > 0 && goal.progress < 100
-    ).length;
-    const notStartedGoals = goals.filter((goal) => goal.progress === 0).length;
-
-    const taskCompletionRate =
-      totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
-
-    const goalCompletionRate =
-      totalGoals === 0 ? 0 : Math.round((completedGoals / totalGoals) * 100);
-
-    const pinnedRate =
-      totalNotes === 0 ? 0 : Math.round((pinnedNotes / totalNotes) * 100);
-
-    const productivityScore = Math.round(
-      taskCompletionRate * 0.45 + goalCompletionRate * 0.4 + pinnedRate * 0.15
+    const notStartedGoals = Math.max(
+      (summary.totalGoals || 0) -
+        (goalAnalytics.completedGoals || 0) -
+        (goalAnalytics.activeGoals || 0),
+      0
     );
 
     return {
-      totalTasks,
-      completedTasks,
-      pendingTasks,
-      totalNotes,
-      pinnedNotes,
-      totalGoals,
-      completedGoals,
+      totalTasks: summary.totalTasks,
+      completedTasks: summary.completedTasks,
+      pendingTasks: summary.pendingTasks,
+      totalNotes: summary.totalNotes,
+      pinnedNotes: summary.pinnedNotes,
+      totalGoals: summary.totalGoals,
+      completedGoals: summary.completedGoals,
       inProgressGoals,
       notStartedGoals,
-      taskCompletionRate,
-      goalCompletionRate,
-      productivityScore,
+      taskCompletionRate: summary.taskCompletionRate,
+      goalCompletionRate: summary.goalCompletionRate,
+      productivityScore: summary.productivityScore,
+      averageGoalProgress: goalAnalytics.averageProgress || 0,
     };
-  }, [tasks, notes, goals]);
+  }, [summary, goalAnalytics]);
 
-  const taskChartData = [
-    { name: "Completed", value: analytics.completedTasks },
-    { name: "Pending", value: analytics.pendingTasks },
-  ];
+  const taskChartData =
+    taskAnalytics.byStatus?.length > 0
+      ? taskAnalytics.byStatus.map((item) => ({
+          name:
+            item.status === "completed"
+              ? "Completed"
+              : item.status === "pending"
+              ? "Pending"
+              : item.status,
+          value: item.count,
+        }))
+      : [
+          { name: "Completed", value: analytics.completedTasks },
+          { name: "Pending", value: analytics.pendingTasks },
+        ];
 
   const goalChartData = [
     { name: "Completed", value: analytics.completedGoals },
@@ -84,16 +124,24 @@ function AnalyticsPage() {
     { name: "Not Started", value: analytics.notStartedGoals },
   ];
 
-  const noteCategoryMap = notes.reduce((acc, note) => {
-    const category = note.category || "Other";
-    acc[category] = (acc[category] || 0) + 1;
-    return acc;
-  }, {});
+  const priorityChartData =
+    taskAnalytics.byPriority?.length > 0
+      ? taskAnalytics.byPriority.map((item) => ({
+          name: item.priority || "Unknown",
+          value: item.count,
+        }))
+      : [];
 
-  const notesCategoryData = Object.keys(noteCategoryMap).map((category) => ({
-    name: category,
-    value: noteCategoryMap[category],
-  }));
+  const completedTrendData =
+    taskAnalytics.completedLast7Days?.length > 0
+      ? taskAnalytics.completedLast7Days.map((item) => ({
+          date: new Date(item.date).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+          }),
+          count: item.count,
+        }))
+      : [];
 
   const productivityLevel =
     analytics.productivityScore >= 70
@@ -110,6 +158,17 @@ function AnalyticsPage() {
       : "This is a good time to refocus and complete a few important items first.";
 
   const PIE_COLORS = ["#2563eb", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6"];
+
+  if (loading) {
+    return (
+      <div className="analytics-page">
+        <div className="analytics-header">
+          <h1>Analytics</h1>
+          <p>Loading your analytics...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="analytics-page">
@@ -199,18 +258,18 @@ function AnalyticsPage() {
 
         <div className="analytics-chart-card wide-card">
           <div className="card-head">
-            <h2>Notes by Category</h2>
-            <span>How your notes are organized</span>
+            <h2>Tasks by Priority</h2>
+            <span>How your tasks are distributed</span>
           </div>
 
           <div className="chart-wrapper">
-            {notesCategoryData.length === 0 ? (
+            {priorityChartData.length === 0 ? (
               <div className="empty-chart-state">
-                No notes data available yet.
+                No priority analytics available yet.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={notesCategoryData}>
+                <BarChart data={priorityChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis allowDecimals={false} />
@@ -218,6 +277,37 @@ function AnalyticsPage() {
                   <Legend />
                   <Bar dataKey="value" radius={[8, 8, 0, 0]} fill="#4f46e5" />
                 </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        <div className="analytics-chart-card wide-card">
+          <div className="card-head">
+            <h2>Completed Tasks Trend</h2>
+            <span>Last 7 days</span>
+          </div>
+
+          <div className="chart-wrapper">
+            {completedTrendData.length === 0 ? (
+              <div className="empty-chart-state">
+                No completed task trend available yet.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={completedTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#22c55e"
+                    strokeWidth={3}
+                  />
+                </LineChart>
               </ResponsiveContainer>
             )}
           </div>
@@ -261,7 +351,25 @@ function AnalyticsPage() {
                   <span>Pinned Notes</span>
                   <strong>{analytics.pinnedNotes}</strong>
                 </div>
+
+                <div className="insight-item">
+                  <span>Average Goal Progress</span>
+                  <strong>{analytics.averageGoalProgress}%</strong>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="analytics-chart-card">
+          <div className="card-head">
+            <h2>Notes Insight</h2>
+            <span>Notes analytics summary</span>
+          </div>
+
+          <div className="chart-wrapper">
+            <div className="empty-chart-state">
+              Notes category analytics is not available from backend yet.
             </div>
           </div>
         </div>

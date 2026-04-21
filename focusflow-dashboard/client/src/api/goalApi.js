@@ -6,7 +6,10 @@ const normalizeGoal = (goal) => {
 
     const progress =
         targetValue > 0
-            ? Math.min(100, Math.max(0, Math.round((currentValue / targetValue) * 100)))
+            ? Math.min(
+                100,
+                Math.max(0, Math.round((currentValue / targetValue) * 100))
+            )
             : 0;
 
     return {
@@ -33,7 +36,8 @@ export const getGoals = async () => {
 
 export const createGoal = async (goalData) => {
     const targetValue = 100;
-    const currentValue = Math.round((goalData.progress / 100) * targetValue);
+    const progress = Number(goalData.progress) || 0;
+    const currentValue = Math.round((progress / 100) * targetValue);
 
     const response = await api.post("/goals", {
         title: goalData.title,
@@ -42,21 +46,16 @@ export const createGoal = async (goalData) => {
         current_value: currentValue,
         unit: "%",
         deadline: goalData.deadline || null,
-        status:
-            goalData.progress === 100
-                ? "completed"
-                : goalData.progress > 0
-                    ? "active"
-                    : "active",
+        status: progress === 100 ? "completed" : "active",
     });
 
     return normalizeGoal(response.data.goal);
 };
 
 export const updateGoal = async (id, goalData) => {
-    const targetValue = goalData.targetValue || 100;
-    const currentValue =
-        goalData.currentValue ?? Math.round(((goalData.progress || 0) / 100) * targetValue);
+    const targetValue = Number(goalData.targetValue) || 100;
+    const progress = Number(goalData.progress) || 0;
+    const currentValue = Math.round((progress / 100) * targetValue);
 
     const response = await api.patch(`/goals/${id}`, {
         title: goalData.title,
@@ -65,12 +64,7 @@ export const updateGoal = async (id, goalData) => {
         current_value: currentValue,
         unit: goalData.unit || "%",
         deadline: goalData.deadline || null,
-        status:
-            (goalData.progress || 0) === 100
-                ? "completed"
-                : (goalData.progress || 0) > 0
-                    ? "active"
-                    : "active",
+        status: progress === 100 ? "completed" : "active",
     });
 
     return normalizeGoal(response.data.goal);

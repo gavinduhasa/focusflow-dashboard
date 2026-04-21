@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
 import "../styles/SettingsPage.css";
+import {
+  getSettings,
+  updateSettings,
+  initSettings,
+} from "../api/settingsApi";
 
 const defaultSettings = {
   displayName: "",
   theme: "light",
+  language: "en",
+  notifications: true,
+  emailUpdates: false,
+  timezone: "Asia/Colombo",
   defaultTaskCategory: "Work",
   defaultNoteCategory: "Work",
   defaultGoalCategory: "Personal",
@@ -12,20 +21,6 @@ const defaultSettings = {
 function SettingsPage() {
   const [settings, setSettings] = useState(defaultSettings);
   const [savedMessage, setSavedMessage] = useState("");
-
-  useEffect(() => {
-    const savedSettings = localStorage.getItem("focusflow_settings");
-
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
-      setSettings({ ...defaultSettings, ...parsedSettings });
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("focusflow_settings", JSON.stringify(settings));
-    applyTheme(settings.theme);
-  }, [settings]);
 
   const applyTheme = (theme) => {
     const body = document.body;
@@ -41,34 +36,119 @@ function SettingsPage() {
     }, 2000);
   };
 
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        await initSettings();
+        const backendSettings = await getSettings();
+
+        const localSettings =
+          JSON.parse(localStorage.getItem("focusflow_settings")) || {};
+        const savedUser = JSON.parse(localStorage.getItem("user")) || {};
+
+        const mergedSettings = {
+          ...defaultSettings,
+          ...backendSettings,
+          ...localSettings,
+          displayName:
+            localSettings.displayName ||
+            savedUser.displayName ||
+            savedUser.name ||
+            "",
+        };
+
+        setSettings(mergedSettings);
+        applyTheme(mergedSettings.theme);
+      } catch (err) {
+        console.error("Failed to load settings", err);
+
+        const localSettings =
+          JSON.parse(localStorage.getItem("focusflow_settings")) || {};
+        const fallbackSettings = { ...defaultSettings, ...localSettings };
+
+        setSettings(fallbackSettings);
+        applyTheme(fallbackSettings.theme);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  const saveLocalOnlySettings = (updatedSettings) => {
+    const localOnlyData = {
+      displayName: updatedSettings.displayName,
+      defaultTaskCategory: updatedSettings.defaultTaskCategory,
+      defaultNoteCategory: updatedSettings.defaultNoteCategory,
+      defaultGoalCategory: updatedSettings.defaultGoalCategory,
+    };
+
+    localStorage.setItem("focusflow_settings", JSON.stringify(localOnlyData));
+
+    const savedUser = JSON.parse(localStorage.getItem("user")) || {};
+    localStorage.setItem(
+      "user",
+      JSON.stringify({
+        ...savedUser,
+        displayName: updatedSettings.displayName,
+      })
+    );
+  };
+
+  const saveBackendSettings = async (updatedSettings) => {
+    const backendUpdated = await updateSettings(updatedSettings);
+
+    return {
+      ...updatedSettings,
+      ...backendUpdated,
+    };
+  };
+
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
 
     setSettings((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  const handleThemeChange = (theme) => {
-    setSettings((prev) => ({
-      ...prev,
-      theme,
-    }));
-    showSavedMessage("Theme updated successfully");
+  const handleThemeChange = async (theme) => {
+    try {
+      const updatedSettings = {
+        ...settings,
+        theme,
+      };
+
+      const merged = await saveBackendSettings(updatedSettings);
+      setSettings(merged);
+      applyTheme(theme);
+      saveLocalOnlySettings(merged);
+      showSavedMessage("Theme updated successfully");
+    } catch (err) {
+      console.error("Failed to update theme", err);
+      showSavedMessage("Failed to update theme");
+    }
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    showSavedMessage("Settings saved successfully");
+
+    try {
+      const merged = await saveBackendSettings(settings);
+      setSettings(merged);
+      saveLocalOnlySettings(merged);
+      showSavedMessage("Settings saved successfully");
+    } catch (err) {
+      console.error("Failed to save settings", err);
+      showSavedMessage("Failed to save settings");
+    }
   };
 
   const handleExportData = () => {
     const allData = {
-      settings: JSON.parse(localStorage.getItem("focusflow_settings")) || {},
-      tasks: JSON.parse(localStorage.getItem("focusflow_tasks")) || [],
-      notes: JSON.parse(localStorage.getItem("focusflow_notes")) || [],
-      goals: JSON.parse(localStorage.getItem("focusflow_goals")) || [],
+      settings:
+        JSON.parse(localStorage.getItem("focusflow_settings")) || {},
+      user: JSON.parse(localStorage.getItem("user")) || {},
     };
 
     const blob = new Blob([JSON.stringify(allData, null, 2)], {
@@ -99,18 +179,28 @@ function SettingsPage() {
     showSavedMessage("All app data cleared");
   };
 
-  const handleResetSettings = () => {
+  const handleResetSettings = async () => {
     const confirmReset = window.confirm(
       "Are you sure you want to reset all settings?"
     );
 
     if (!confirmReset) return;
 
-    setSettings(defaultSettings);
-    localStorage.setItem("focusflow_settings", JSON.stringify(defaultSettings));
-    applyTheme(defaultSettings.theme);
+    try {
+      const resetValues = {
+        ...defaultSettings,
+      };
 
-    showSavedMessage("Settings reset successfully");
+      const merged = await saveBackendSettings(resetValues);
+      setSettings(merged);
+      saveLocalOnlySettings(resetValues);
+      applyTheme(defaultSettings.theme);
+
+      showSavedMessage("Settings reset successfully");
+    } catch (err) {
+      console.error("Failed to reset settings", err);
+      showSavedMessage("Failed to reset settings");
+    }
   };
 
   return (
@@ -155,14 +245,20 @@ function SettingsPage() {
 
           <div className="theme-options">
             <button
-              className={`theme-option ${settings.theme === "light" ? "active-theme" : ""}`}
+              type="button"
+              className={`theme-option ${
+                settings.theme === "light" ? "active-theme" : ""
+              }`}
               onClick={() => handleThemeChange("light")}
             >
               ☀️ Light Mode
             </button>
 
             <button
-              className={`theme-option ${settings.theme === "dark" ? "active-theme" : ""}`}
+              type="button"
+              className={`theme-option ${
+                settings.theme === "dark" ? "active-theme" : ""
+              }`}
               onClick={() => handleThemeChange("dark")}
             >
               🌙 Dark Mode
@@ -235,20 +331,82 @@ function SettingsPage() {
 
         <div className="settings-card">
           <div className="settings-card-head">
+            <h2>Preferences</h2>
+            <p>Backend-connected app preferences</p>
+          </div>
+
+          <div className="settings-form">
+            <div className="form-group">
+              <label>Language</label>
+              <select
+                name="language"
+                value={settings.language}
+                onChange={handleChange}
+              >
+                <option value="en">English</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Timezone</label>
+              <input
+                type="text"
+                name="timezone"
+                value={settings.timezone}
+                onChange={handleChange}
+              />
+            </div>
+
+            <label className="pin-checkbox">
+              <input
+                type="checkbox"
+                name="notifications"
+                checked={settings.notifications}
+                onChange={handleChange}
+              />
+              Enable notifications
+            </label>
+
+            <label className="pin-checkbox">
+              <input
+                type="checkbox"
+                name="emailUpdates"
+                checked={settings.emailUpdates}
+                onChange={handleChange}
+              />
+              Enable email updates
+            </label>
+          </div>
+        </div>
+
+        <div className="settings-card">
+          <div className="settings-card-head">
             <h2>Data Management</h2>
             <p>Backup and manage your app data</p>
           </div>
 
           <div className="data-actions">
-            <button className="primary-btn" onClick={handleExportData}>
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={handleExportData}
+            >
               Export Data
             </button>
 
-            <button className="warning-btn" onClick={handleResetSettings}>
+            <button
+              type="button"
+              className="warning-btn"
+              onClick={handleResetSettings}
+            >
               Reset Settings
             </button>
 
-            <button className="danger-btn" onClick={handleClearAllData}>
+            <button
+              type="button"
+              className="danger-btn"
+              onClick={handleClearAllData}
+            >
               Clear All Data
             </button>
           </div>

@@ -107,6 +107,7 @@ function GoalsPage() {
         const updatedGoal = await updateGoal(editGoalId, {
           ...existingGoal,
           ...formData,
+          progress: Number(formData.progress),
         });
 
         setGoals((prevGoals) =>
@@ -124,7 +125,10 @@ function GoalsPage() {
         return;
       }
 
-      const createdGoal = await createGoal(formData);
+      const createdGoal = await createGoal({
+        ...formData,
+        progress: Number(formData.progress),
+      });
 
       setGoals((prevGoals) => [
         {
@@ -142,7 +146,9 @@ function GoalsPage() {
   };
 
   const handleDeleteGoal = async (id) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this goal?");
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this goal?"
+    );
     if (!confirmDelete) return;
 
     try {
@@ -165,17 +171,17 @@ function GoalsPage() {
       description: goal.description || "",
       category: goal.category || "Personal",
       deadline: goal.deadline || "",
-      progress: goal.progress || 0,
+      progress: Number(goal.progress) || 0,
     });
   };
 
   const handleQuickProgress = async (goal, action) => {
-    let updatedProgress = goal.progress;
+    let updatedProgress = Number(goal.progress) || 0;
 
     if (action === "increase") {
-      updatedProgress = Math.min(goal.progress + 10, 100);
+      updatedProgress = Math.min(updatedProgress + 10, 100);
     } else if (action === "decrease") {
-      updatedProgress = Math.max(goal.progress - 10, 0);
+      updatedProgress = Math.max(updatedProgress - 10, 0);
     }
 
     try {
@@ -194,6 +200,13 @@ function GoalsPage() {
             : g
         )
       );
+
+      if (editGoalId === goal.id) {
+        setFormData((prev) => ({
+          ...prev,
+          progress: updatedProgress,
+        }));
+      }
     } catch (err) {
       console.error("Failed to update goal progress", err);
       alert("Failed to update goal progress");
@@ -202,7 +215,7 @@ function GoalsPage() {
 
   const filteredGoals = useMemo(() => {
     return goals.filter((goal) => {
-      const status = getGoalStatus(goal.progress);
+      const status = getGoalStatus(Number(goal.progress) || 0);
 
       const matchesSearch =
         (goal.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -225,7 +238,9 @@ function GoalsPage() {
   }, [goals, searchTerm, statusFilter, categoryFilter]);
 
   const totalGoals = goals.length;
-  const completedGoals = goals.filter((goal) => goal.progress === 100).length;
+  const completedGoals = goals.filter(
+    (goal) => Number(goal.progress) === 100
+  ).length;
   const completionRate =
     totalGoals === 0 ? 0 : Math.round((completedGoals / totalGoals) * 100);
 
@@ -356,9 +371,10 @@ function GoalsPage() {
               <p className="no-goals-text">No goals found.</p>
             ) : (
               filteredGoals.map((goal, index) => {
-                const status = getGoalStatus(goal.progress);
-                const smartMessage = getSmartMessage(goal.progress);
-                const deadlineState = getDeadlineState(goal.deadline, goal.progress);
+                const progress = Number(goal.progress) || 0;
+                const status = getGoalStatus(progress);
+                const smartMessage = getSmartMessage(progress);
+                const deadlineState = getDeadlineState(goal.deadline, progress);
 
                 return (
                   <div key={goal.id || index} className="goal-item">
@@ -376,6 +392,7 @@ function GoalsPage() {
                         >
                           {goal.category || "Other"}
                         </span>
+
                         <span
                           className={`goal-status-badge ${status
                             .toLowerCase()
@@ -389,13 +406,13 @@ function GoalsPage() {
                     <div className="goal-progress-section">
                       <div className="goal-progress-info">
                         <span>Progress</span>
-                        <span>{goal.progress}%</span>
+                        <span>{progress}%</span>
                       </div>
 
                       <div className="goal-progress-bar">
                         <div
                           className="goal-progress-fill"
-                          style={{ width: `${goal.progress}%` }}
+                          style={{ width: `${progress}%` }}
                         ></div>
                       </div>
                     </div>
@@ -409,6 +426,7 @@ function GoalsPage() {
 
                     <div className="goal-actions">
                       <button
+                        type="button"
                         className="progress-down-btn"
                         onClick={() => handleQuickProgress(goal, "decrease")}
                       >
@@ -416,6 +434,7 @@ function GoalsPage() {
                       </button>
 
                       <button
+                        type="button"
                         className="progress-up-btn"
                         onClick={() => handleQuickProgress(goal, "increase")}
                       >
@@ -423,6 +442,7 @@ function GoalsPage() {
                       </button>
 
                       <button
+                        type="button"
                         className="edit-btn"
                         onClick={() => handleEditGoal(goal)}
                       >
@@ -430,6 +450,7 @@ function GoalsPage() {
                       </button>
 
                       <button
+                        type="button"
                         className="delete-btn"
                         onClick={() => handleDeleteGoal(goal.id)}
                       >
